@@ -1958,7 +1958,8 @@
 ;; player too: position and facing, the camera's heading, the raw sticks, the buttons held and the
 ;; ones pressed since the line before, the state, the level and whether the player stands on ground.
 ;; The test harness turns a log into a route its autopilot walks. A "[coop-rec] start" line gives the
-;; continue point each time the recording starts (option on, or the first gameplay frame).
+;; continue point each time the recording starts: the option turned on, player 1 there again (after a
+;; boot or a loaded save) or sent to a checkpoint (target-continue).
 (define *coop-record-interval* (seconds 0.1))
 
 (defconstant COOP_RECORD_VERSION 1)
@@ -1966,11 +1967,14 @@
 (deftype coop-record-state (structure)
   ((pressed uint32 2) ;; buttons pressed since the last line, per player
    (last    time-frame)
-   (on?     symbol))) ;; a start line was written and the option is still on
+   (on?     symbol) ;; a start line was written and the option is still on
+   (state   symbol))) ;; player 1's state the frame before
 
 (define *coop-record* (new 'global 'coop-record-state))
 
 (set! (-> *coop-record* on?) #f)
+
+(set! (-> *coop-record* state) #f)
 
 (defmacro coop-record-deg (angle)
   "An angle (65536 a turn) in degrees."
@@ -2011,7 +2015,13 @@
 (defun coop-record-tick ()
   "Once per frame, right after the pads are read, while the option is on (drawable.gc)."
   (let ((st *coop-record*))
-    (when (= *master-mode* 'game)
+    ;; no player 1 (title screen, loading) or player 1 sent to a checkpoint: a new start line, naming
+    ;; the continue point they come back at
+    (let* ((p1 (coop-player-target 0))
+           (name (if (and p1 (-> p1 next-state)) (-> p1 next-state name) #f)))
+      (if (or (not p1) (and (= name 'target-continue) (!= name (-> st state)))) (set! (-> st on?) #f))
+      (set! (-> st state) name))
+    (when (and (= *master-mode* 'game) (coop-player-target 0))
       (when (not (-> st on?))
         (set! (-> st on?) #t)
         (set! (-> st last) 0)
@@ -2022,7 +2032,8 @@
                 (coop-active?)
                 (if (-> *game-info* current-continue) (-> *game-info* current-continue name) #f)))
       (dotimes (i 2)
-        (let ((tgt (coop-player-target i)))
+        ;; player 2's context is only set up in co-op (its target handle is stale in single player)
+        (let ((tgt (if (or (zero? i) (coop-active?)) (coop-player-target i) (the-as target #f))))
           (when tgt
             (logior! (-> st pressed i) (-> tgt control cpad button0-rel 0))
             (when (time-elapsed? (-> st last) *coop-record-interval*)
