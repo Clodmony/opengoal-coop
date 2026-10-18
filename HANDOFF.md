@@ -65,6 +65,10 @@ Open and waiting on the owner:
   spike gates), #178 (nearest-player checks left, low). Not filed: the sage's beach intro leaves
   Sandover's warp gate hidden (single player too).
 
+Owner wants next (2026-10-18): #179 (log a missing sky per view, for #163) and #180 (harness
+autopilot: recorded routes, combat rules for common enemies, per-area rules for special ones; owner
+wants all three parts, first step Sentinel Beach). #180 needs one recording of the owner playing.
+
 Owner only: #1, #3, #8 (need a person), #7 (decision). Low priority: #157 (listener crash seen
 once), #153 (turbo while waiting).
 
