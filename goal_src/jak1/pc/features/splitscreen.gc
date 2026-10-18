@@ -1717,6 +1717,155 @@
     (format 0 "[coop-log] t=~,,1f player ~D ~S~%" (coop-log-time) (+ i 1) (if (logtest? new bit) on off)))
   (none))
 
+;; The sky per view (#179, for #163's black sky): a line when a view's sky trouble starts, changes and
+;; ends, with the sky state, the levels and their vis in that view, and both cameras. Trouble bits:
+;; 1 a sky wanted but none drawn, 2 a level using another vis than the rule picks for this view's
+;; camera (the vis-info flag bit 31, #58), 4 the camera inside no active level's boxes. A trouble
+;; shorter than *coop-log-sky-hold* is not logged (the frame a sky is first wanted has no textures yet).
+(define *coop-log-sky-hold* (seconds 0.25))
+
+(deftype coop-log-sky-state (structure)
+  ((kinds  uint32 2) ;; trouble bits per view, this frame
+   (logged uint32 2) ;; the bits the last line logged, 0 when none is open
+   (since  time-frame 2))) ;; when the current kinds started
+
+(define *coop-log-sky* (new 'global 'coop-log-sky-state))
+
+(defun coop-log-sky-vis-used ((i int) (view int))
+  "The vis-info index the level in slot i uses in view (0 player 1, 1 player 2), or -1. Player 1's
+   choice is in the level's vis-info flags, player 2's in *coop-view-vis* outside player 2's pass."
+  (let ((lev (level-slot i)))
+    (dotimes (k 8)
+      (when (-> lev vis-info k)
+        (if (logtest? (if (zero? view) (-> lev vis-info k flags) (-> *coop-view-vis* slot i vis-use k)) #x80000000)
+          (return k)))))
+  -1)
+
+(defun coop-log-sky-inside? ((i int) (view int))
+  "Is view's camera inside the boxes of the level in slot i?"
+  (if (zero? view) (-> (level-slot i) inside-boxes?) (-> *coop-view-vis* slot i inside-boxes?)))
+
+(defun coop-log-sky-vis-want ((i int) (view int))
+  "The vis-info index the rule of level-group update picks for the level in slot i with view's
+   camera, or -1."
+  (let ((lev (level-slot i))
+        (other-inside #f))
+    (dotimes (j (-> *level* length))
+      (if (and (!= j i) (= (-> (level-slot j) status) 'active) (coop-log-sky-inside? j view)) (set! other-inside #t)))
+    (let ((k (cond
+               ((= (-> lev display?) 'display-self) (-> lev vis-self-index))
+               ((and (coop-log-sky-inside? i view) (not other-inside)) (-> lev vis-self-index))
+               (other-inside (-> lev vis-adj-index))
+               (else -1))))
+      (if (and (>= k 0) (< k 8) (-> lev vis-info k)) k -1))))
+
+(defun coop-log-sky-view-ok? ((view int))
+  "Does view have a vis state of its own for every active level (player 2's is set up in its pass)?"
+  (or (zero? view)
+      (and (coop-split-frame?)
+           (begin
+             (dotimes (i (-> *level* length))
+               (let ((lev (level-slot i))
+                     (vv (-> *coop-view-vis* slot i)))
+                 (if (and (= (-> lev status) 'active) (or (!= (-> vv bsp) (-> lev bsp)) (!= (-> vv name) (-> lev name))))
+                   (return #f))))
+             #t))))
+
+(defun coop-log-sky-kinds ((view int))
+  "The trouble bits of view this frame."
+  (let ((kinds 0)
+        (inside-any #f)
+        (vis-any #f))
+    (if (and (-> *time-of-day-context* sky) (not *sky-drawn*)) (logior! kinds 1))
+    (dotimes (i (-> *level* length))
+      (let ((lev (level-slot i)))
+        (when (= (-> lev status) 'active)
+          (if (coop-log-sky-inside? i view) (set! inside-any #t))
+          (if (-> lev vis-info 0) (set! vis-any #t)))))
+    (cond
+      ;; outside every level's boxes the choice is kept, so there is no rule to compare with
+      ((not inside-any) (if vis-any (logior! kinds 4)))
+      (else
+       (dotimes (i (-> *level* length))
+         (let ((lev (level-slot i)))
+           (if (and (= (-> lev status) 'active) (-> lev display?) (!= (coop-log-sky-vis-used i view) (coop-log-sky-vis-want i view)))
+             (logior! kinds 2))))))
+    (the-as uint kinds)))
+
+(defun coop-log-sky-camera ((view int))
+  (if (zero? view)
+    (if (nonzero? (-> *coop-context-p1* math-camera)) (-> *coop-context-p1* math-camera) *math-camera*)
+    *coop-p2-math-camera*))
+
+(defun coop-log-sky-vis-name ((lev level) (k int))
+  (cond
+    ((< k 0) "none")
+    ((= k (-> lev vis-self-index)) "own")
+    ((= k (-> lev vis-adj-index)) "adjacent")
+    (else "other")))
+
+(defun coop-log-sky-details ((view int))
+  "The rest of a sky line: the sky, the levels in view's vis, both cameras."
+  (let ((tod (the-as coop-time-of-day-context *time-of-day-context*)))
+    (format 0
+            " | sky wanted ~A drawn ~A active ~D pair ~A/~A"
+            (-> tod sky)
+            *sky-drawn*
+            (-> tod active-count)
+            (-> (level-slot (-> tod blend-slot-a)) name)
+            (-> (level-slot (-> tod blend-slot-b)) name))
+    (format 0 " interp ~,,2f tod ~,,2f" (-> tod current-interp) (-> tod time)))
+  (dotimes (i (-> *level* length))
+    (let ((lev (level-slot i)))
+      (when (!= (-> lev status) 'inactive)
+        (format 0 " | slot ~D ~A ~A ~A" i (-> lev name) (-> lev status) (-> lev display?))
+        (when (= (-> lev status) 'active)
+          (format 0
+                  " vis ~S (rule ~S) inside ~A"
+                  (coop-log-sky-vis-name lev (coop-log-sky-vis-used i view))
+                  (coop-log-sky-vis-name lev (coop-log-sky-vis-want i view))
+                  (coop-log-sky-inside? i view))))))
+  (dotimes (v 2)
+    (let ((cam (coop-log-sky-camera v)))
+      (format 0
+              " | cam~D ~,,1m ~,,1m ~,,1m"
+              (+ v 1)
+              (-> cam trans x)
+              (-> cam trans y)
+              (-> cam trans z))
+      (format 0
+              " dir ~,,2f ~,,2f ~,,2f"
+              (-> cam inv-camera-rot vector 2 x)
+              (-> cam inv-camera-rot vector 2 y)
+              (-> cam inv-camera-rot vector 2 z))))
+  (format 0 "~%")
+  (none))
+
+(defun coop-log-sky-tick ()
+  "Once per gameplay frame (coop-log-tick), after the frame before was drawn: the sky trouble of each view."
+  (let ((st *coop-log-sky*))
+    (dotimes (view 2)
+      (let ((kinds (if (coop-log-sky-view-ok? view) (coop-log-sky-kinds view) (the-as uint 0))))
+        (when (!= kinds (-> st kinds view))
+          (set! (-> st kinds view) kinds)
+          (set-time! (-> st since view)))
+        (cond
+          ((and (zero? kinds) (nonzero? (-> st logged view)))
+           (format 0 "[coop-log] t=~,,1f view ~D sky trouble over~%" (coop-log-time) (+ view 1))
+           (set! (-> st logged view) (the-as uint 0)))
+          ((and (nonzero? kinds) (!= kinds (-> st logged view)) (time-elapsed? (-> st since view) *coop-log-sky-hold*))
+           (format 0
+                   "[coop-log] t=~,,1f view ~D sky trouble~S~S~S since t=~,,1f"
+                   (coop-log-time)
+                   (+ view 1)
+                   (if (logtest? kinds 1) " no-sky" "")
+                   (if (logtest? kinds 2) " vis" "")
+                   (if (logtest? kinds 4) " outside" "")
+                   (* 0.0033333334 (the float (-> st since view))))
+           (coop-log-sky-details view)
+           (set! (-> st logged view) kinds))))))
+  (none))
+
 (defun coop-log-tick ()
   "Once per gameplay frame (coop-update): log what changed for each player since the last frame."
   (when *coop-log?*
@@ -1796,7 +1945,8 @@
                         (-> tgt control trans z))
                 (format 0 " hp ~,,1f ~A" (-> tgt fact health) (if (-> tgt next-state) (-> tgt next-state name) #f)))
               (format 0 " | p~D none" (+ i 1)))))
-        (format 0 "~%"))))
+        (format 0 "~%"))
+      (coop-log-sky-tick)))
   (none))
 
 (defun coop-clone-anim-state? ((name symbol))
