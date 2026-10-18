@@ -7,8 +7,20 @@ memory is not read by a session that starts in another worktree. State goes
 here; stable recipes go into `docs/splitscreen/`; personal data and hardware
 never.
 
-Last updated 2026-10-17 (step 2 of the plan, the three streams, done: #50-#60 merged, plus the
-crash triage, #163's scenario and #164; next: step 3, #146 then #11, alone).
+Last updated 2026-10-18 (#179 done, PR #181 open; next: #180, then step 3, #146 then #11, alone).
+
+## This session (2026-10-18)
+
+- **#179, PR #181** (`coop/179-sky-log`, open, verify all passed): the game log gets a
+  `[coop-log] ... view N sky trouble <no-sky|vis|outside> since t=...` line per view when a missing
+  sky, an unexpected vis or the camera outside every level's boxes starts (held 0.25 s), with the
+  sky state, the slots' vis in that view and both cameras, and `... sky trouble over` when it ends
+  (`coop-log-sky-tick`, ARCHITECTURE.md "Rendering", TESTING.md 69). Scenario `sky-log` in the tools
+  checkout (committed there). `outside` shows up now and then with a scene camera or a teleport above
+  the levels (the game's own "outside of bsp"); `no-sky` and `vis` never did in 13 minutes of
+  `sky-beach`/`sky-pair`. Breaking the sky from the REPL: hide the active levels' `bsp adgifs`
+  (clearing `info sky` turns the wanted sky off too).
+- A playtest package from the tip after #181 would put the log in front of #163's next black sky.
 
 ## Done this run (step 2, coordinated)
 
@@ -38,7 +50,7 @@ row (56-67). Tools README's campaign list names them all.
 
 ## Open pull requests
 
-None.
+- **#181** (#179, sky log per view): ready; merge when the owner says so.
 
 Merge style: locally as Claude,
 `git merge --no-ff -m "Merge pull request #N from Clodmony/<branch> (AI-assisted)"`
@@ -65,9 +77,10 @@ Open and waiting on the owner:
   spike gates), #178 (nearest-player checks left, low). Not filed: the sage's beach intro leaves
   Sandover's warp gate hidden (single player too).
 
-Owner wants next (2026-10-18): #179 (log a missing sky per view, for #163) and #180 (harness
-autopilot: recorded routes, combat rules for common enemies, per-area rules for special ones; owner
-wants all three parts, first step Sentinel Beach). #180 needs one recording of the owner playing.
+Owner wants next (2026-10-18): #179 done (PR #181); #180 (harness autopilot: recorded routes,
+combat rules for common enemies, per-area rules for special ones; owner wants all three parts, first
+step Sentinel Beach). #180 needs one recording of the owner playing: first step, read #180's comments,
+then ask the owner for the recording (Sentinel Beach) or build the recorder first.
 
 Owner only: #1, #3, #8 (need a person), #7 (decision). Low priority: #157 (listener crash seen
 once), #153 (turbo while waiting).
@@ -104,9 +117,12 @@ once), #153 (turbo while waiting).
 
 - Main checkout on `feature/jak1-local-splitscreen` (the owner's; its `build/` is old, don't copy
   binaries from it).
-- The coordinator's Superset workspace: detached at the merged tip, its `build/` from
-  `scratch/build-play`. The workers' workspaces are archived (branches kept, all merged).
+- The Superset workspace of #179 on `coop/179-sky-log` (PR #181); its `build/` predates #165, so a
+  stopped test game leaves a gk core (the old exit segfault). Archive it when #181 is merged.
 - No bridge or test game running; pads unplugged.
+- A REPL call that crashes the game shows up as "Runtime is not responding", then every call as
+  "Compilation generated code, but wasn't supposed to" (goalc lost the listener): `boot fresh=True`.
+  Reading `(-> lev info ...)` of an inactive slot crashes the game.
 
 ## Lessons (harness)
 

@@ -127,7 +127,15 @@ updates it for player 2's camera. Which vis a level draws with, its own or the a
 is in), is chosen for player 2's camera too (`coop-view-vis-choose`, traded with the rest): with
 player 1 at Lava Tube's start, inside lavatube's and village3's boxes, lavatube drew with village3's
 vis in player 2's view as well, and player 2 in the energy ball room saw sky and black around them
-(674 of the 3515 objects drawn, #58). Actor LOD: on a split frame each view draws the LOD for its own
+(674 of the 3515 objects drawn, #58). The game log gets a line when a view's sky goes wrong and one
+when it is right again (`coop-log-sky-tick`, from `coop-log-tick`, #179): a sky wanted but none drawn
+(`no-sky`), a level drawing with another vis than the level update's rule picks for that view's
+camera (`vis`; player 1's choice is in the levels' vis-info flags, player 2's in `*coop-view-vis*`
+outside player 2's pass), or the camera inside no active level's boxes (`outside`). A trouble held for
+less than 0.25 s isn't logged. The line has the sky state (wanted, drawn, the blend pair, its interp,
+the time of day), per slot the level, its status and display, the vis in use in that view (own,
+adjacent, none) with the rule's choice and whether the camera is inside its boxes, and both cameras'
+positions and directions. Actor LOD: on a split frame each view draws the LOD for its own
 camera (`dma-add-process-drawable`), never finer than the LOD the joints were computed for, and the
 actor keeps the finest LOD of the views for its own logic. Things that would otherwise run once per view: the
 death-dissolve timer (`draw-bones`, skipped when view 0 already drew the object), the TIE wind
