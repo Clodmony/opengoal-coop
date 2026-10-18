@@ -39,6 +39,7 @@
    (every-ring?       symbol) ;; race rings: each ring counts only once both players flew through it
    (friendly-fire?    symbol) ;; the players' attacks hit each other
    (tougher-bosses?   symbol) ;; bosses need more hits while two players fight them
+   (record-route?     symbol) ;; [coop-rec] lines in the game log: each player's route, for the test autopilot (#180)
    (camera-menu-p1?   symbol) ;; the camera options page edits player 1's controls (#f: player 2's)
    (leash-distance    meters) ;; max distance between players before the catch-up teleport
    (near-hysteresis   meters) ;; a world process only switches player when the other is this much closer
@@ -61,6 +62,7 @@
        :every-ring? #f
        :friendly-fire? #t
        :tougher-bosses? #f
+       :record-route? #f
        :camera-menu-p1? #t
        :leash-distance (meters 1000)
        ;; small: interactions have small radii (the fisherman's boat 1.5 m), a big margin left the closer
@@ -294,6 +296,8 @@
         (logior! (-> p1-pad button0-abs 0) pause-buttons)
         (logior! (-> p1-pad button0-rel 0) pause-buttons))))
   (none))
+
+(define-extern coop-record-tick (function none))
 
 ;; the menu shows the join screen (co-op input is on, co-op not started yet)
 (define *coop-join-screen?* #f)

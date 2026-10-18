@@ -269,6 +269,11 @@
 
 (#if PC_PORT (defconstant STICK_DEADZONE (-> *pc-settings* stick-deadzone)) (defconstant STICK_DEADZONE 0.3))
 
+;; og:preserve-this coop: a function (pad-idx pad) called after a pad is read and before its buttons
+;; and sticks are worked out, which may change the read values (button0, leftx ... righty); #f: none.
+;; The co-op test harness's autopilot drives players from inside the game with it (#180).
+(define *cpad-override* (the-as (function int cpad-info none) #f)) ;; og:preserve-this coop
+
 (defun service-cpads ()
   "Read from cpads and update vibration"
   ;; iterate over pads
@@ -278,6 +283,7 @@
             (history (-> *cpad-history-list* cpads pad-idx)))
         ;; read from hardware.
         (cpad-get-data pad)
+        (if *cpad-override* (*cpad-override* pad-idx pad)) ;; og:preserve-this coop: test autopilot
         (cond
           ((zero? (logand (-> pad valid) 128))
            (dotimes (buzz-idx 2)

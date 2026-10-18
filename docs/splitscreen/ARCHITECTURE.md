@@ -174,6 +174,20 @@ Camera controls are per player (#41). The right stick macros in `pad.gc` (`analo
 resets only that player (`coop-reset-camera`). The global "Analog sensitivity" (C++ `axis_scale`,
 both sticks of every pad) stays shared.
 
+The test harness's autopilot (#180) drives players from inside the game: `*cpad-override*` (`pad.gc`,
+`#f` in play) is a function `service-cpads` calls after reading a pad and before working out its
+buttons, stick speed and direction, so it may replace the read values (`button0`, `leftx` ...
+`righty`) and the player code sees ordinary pad input in the same frame. The autopilot itself lives in
+the harness (`autopilot.gc`), not in the game.
+
+Route recorder (#180): with the Misc option "Co-op: record route" (off by default, kept in
+`coop-settings.gc`) each player in play gets a `[coop-rec]` line in the game log every 0.1 s of game
+time, in single player too: position, facing and camera heading in degrees, the raw sticks, the
+buttons held and those pressed since the line before, the state, the level and whether the player
+stands on ground (`coop-record-tick`, called from the display loop right after `service-cpads`). A
+`[coop-rec] start` line with the continue point opens each recording: the option turned on, player 1
+there again (a boot, a loaded save) or sent to a checkpoint (`target-continue`). The harness's `demo/route.py` turns one player's lines into a route.
+
 ## Streaming and world simulation
 
 Jak 1 held two levels; co-op holds four (#110), so each player can stand in their own level and
@@ -412,8 +426,8 @@ the same behaviour as the existing PC "force actors" option, without changing th
 - `coop-start` saves `*ACTOR-bank*` and `coop-stop` restores it, so single player doesn't keep the
   co-op actor distances.
 - Nothing is added to `pc-settings.gc` (other builds sharing the folder would reject unknown keys).
-  The split layout, the co-op options (every ring for both, friendly fire, tougher bosses) and the
-  camera controls per player (player 2's inversions, both players' camera speed) are kept in
+  The split layout, the co-op options (every ring for both, friendly fire, tougher bosses, record
+  route) and the camera controls per player (player 2's inversions, both players' camera speed) are kept in
   `coop-settings.gc` in the same folder (`coop-save-settings` when one changes in the menu,
   `coop-load-settings` at boot). Its reader skips keys it doesn't know (a newer build's file) and a
   broken file only leaves the defaults. Whether co-op is on is never kept.

@@ -1949,6 +1949,99 @@
       (coop-log-sky-tick)))
   (none))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; route recorder (#180)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; With the Misc option "Co-op: record route" (coop-settings.gc, off by default), every player in play
+;; gets a "[coop-rec]" line in the game log every *coop-record-interval* of game time, in single
+;; player too: position and facing, the camera's heading, the raw sticks, the buttons held and the
+;; ones pressed since the line before, the state, the level and whether the player stands on ground.
+;; The test harness turns a log into a route its autopilot walks. A "[coop-rec] start" line gives the
+;; continue point each time the recording starts: the option turned on, player 1 there again (after a
+;; boot or a loaded save) or sent to a checkpoint (target-continue).
+(define *coop-record-interval* (seconds 0.1))
+
+(defconstant COOP_RECORD_VERSION 1)
+
+(deftype coop-record-state (structure)
+  ((pressed uint32 2) ;; buttons pressed since the last line, per player
+   (last    time-frame)
+   (on?     symbol) ;; a start line was written and the option is still on
+   (state   symbol))) ;; player 1's state the frame before
+
+(define *coop-record* (new 'global 'coop-record-state))
+
+(set! (-> *coop-record* on?) #f)
+
+(set! (-> *coop-record* state) #f)
+
+(defmacro coop-record-deg (angle)
+  "An angle (65536 a turn) in degrees."
+  `(* 0.0054931640625 ,angle))
+
+(defun coop-record-camera ((i int))
+  "The camera of player i's view (player 1 in single player: the game's own)."
+  (if (and (zero? i) (not (coop-active?))) *math-camera* (coop-log-sky-camera i)))
+
+(defun coop-record-line ((i int) (tgt target))
+  (let* ((cs (-> tgt control))
+         (pad (-> cs cpad))
+         (cam-f (-> (coop-record-camera i) inv-camera-rot vector 2)))
+    (format 0
+            "[coop-rec] t=~,,2f p=~D x=~,,3f y=~,,3f z=~,,3f"
+            (coop-log-time)
+            (+ i 1)
+            (* 0.00024414062 (-> cs trans x))
+            (* 0.00024414062 (-> cs trans y))
+            (* 0.00024414062 (-> cs trans z)))
+    (format 0
+            " yaw=~,,1f cam=~,,1f lx=~D ly=~D rx=~D ry=~D"
+            (coop-record-deg (quaternion-y-angle (-> cs quat)))
+            (coop-record-deg (atan (-> cam-f x) (-> cam-f z)))
+            (-> pad leftx)
+            (-> pad lefty)
+            (-> pad rightx)
+            (-> pad righty))
+    (format 0
+            " held=#x~X pr=#x~X st=~A lev=~A gnd=~D~%"
+            (-> pad button0-abs 0)
+            (logior (-> *coop-record* pressed i) (-> pad button0-rel 0))
+            (if (-> tgt next-state) (-> tgt next-state name) #f)
+            (if (-> tgt current-level) (-> tgt current-level name) #f)
+            (if (logtest? (-> cs status) (cshape-moving-flags onsurf)) 1 0)))
+  (none))
+
+(defun coop-record-tick ()
+  "Once per frame, right after the pads are read, while the option is on (drawable.gc)."
+  (let ((st *coop-record*))
+    ;; no player 1 (title screen, loading) or player 1 sent to a checkpoint: a new start line, naming
+    ;; the continue point they come back at
+    (let* ((p1 (coop-player-target 0))
+           (name (if (and p1 (-> p1 next-state)) (-> p1 next-state name) #f)))
+      (if (or (not p1) (and (= name 'target-continue) (!= name (-> st state)))) (set! (-> st on?) #f))
+      (set! (-> st state) name))
+    (when (and (= *master-mode* 'game) (coop-player-target 0))
+      (when (not (-> st on?))
+        (set! (-> st on?) #t)
+        (set! (-> st last) 0)
+        (format 0
+                "[coop-rec] start t=~,,2f version ~D coop ~A continue ~A~%"
+                (coop-log-time)
+                COOP_RECORD_VERSION
+                (coop-active?)
+                (if (-> *game-info* current-continue) (-> *game-info* current-continue name) #f)))
+      (dotimes (i 2)
+        ;; player 2's context is only set up in co-op (its target handle is stale in single player)
+        (let ((tgt (if (or (zero? i) (coop-active?)) (coop-player-target i) (the-as target #f))))
+          (when tgt
+            (logior! (-> st pressed i) (-> tgt control cpad button0-rel 0))
+            (when (time-elapsed? (-> st last) *coop-record-interval*)
+              (coop-record-line i tgt)
+              (set! (-> st pressed i) (the-as uint 0))))))
+      (if (time-elapsed? (-> st last) *coop-record-interval*) (set-time! (-> st last)))))
+  (none))
+
 (defun coop-clone-anim-state? ((name symbol))
   "Is name a state a player is in while a cinematic animates them: on foot, on the zoomer or on the
    flut flut."
@@ -3075,6 +3168,8 @@
 
 (defun coop-save-settings ()
   "Write the split layout, co-op options and camera controls per player to coop-settings.gc."
+  ;; the recorder writes a new start line when the option comes back on
+  (if (not (-> *coop* record-route?)) (set! (-> *coop-record* on?) #f))
   (let ((path (coop-settings-path)))
     (pc-mkdir-file-path path)
     (let ((file (new 'stack 'file-stream path 'write)))
@@ -3084,6 +3179,7 @@
         (format file "  (every-ring? ~A)~%" (-> *coop* every-ring?))
         (format file "  (friendly-fire? ~A)~%" (-> *coop* friendly-fire?))
         (format file "  (tougher-bosses? ~A)~%" (-> *coop* tougher-bosses?))
+        (format file "  (record-route? ~A)~%" (-> *coop* record-route?))
         ;; camera controls per player (player 1's inversions are in pc-settings.gc)
         (format file "  (p1-camera-speed ~f)~%" (-> *coop-camera* 0 speed))
         (format file "  (p2-first-camera-h-inverted? ~A)~%" (-> *coop-camera* 1 first-camera-h-inverted?))
@@ -3140,6 +3236,7 @@
                  (("every-ring?") (set! (-> *coop* every-ring?) (coop-read-flag file)))
                  (("friendly-fire?") (set! (-> *coop* friendly-fire?) (coop-read-flag file)))
                  (("tougher-bosses?") (set! (-> *coop* tougher-bosses?) (coop-read-flag file)))
+                 (("record-route?") (set! (-> *coop* record-route?) (coop-read-flag file)))
                  (("p1-camera-speed") (set! (-> *coop-camera* 0 speed) (coop-read-camera-speed file)))
                  (("p2-first-camera-h-inverted?") (set! (-> *coop-camera* 1 first-camera-h-inverted?) (coop-read-flag file)))
                  (("p2-first-camera-v-inverted?") (set! (-> *coop-camera* 1 first-camera-v-inverted?) (coop-read-flag file)))
