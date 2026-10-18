@@ -7,22 +7,26 @@ memory is not read by a session that starts in another worktree. State goes
 here; stable recipes go into `docs/splitscreen/`; personal data and hardware
 never.
 
-Last updated 2026-10-18 (#179 done, PR #181 merged; next: #180, then step 3, #146 then #11, alone).
+Last updated 2026-10-18 (#180 part 1 done, PR #182 open; next: the owner's Sentinel Beach recording, then #180 part 2).
 
-## This session (2026-10-18)
+## This session (2026-10-18, second)
 
-- **#179, PR #181** (`coop/179-sky-log`, merged, verify all passed): the game log gets a
-  `[coop-log] ... view N sky trouble <no-sky|vis|outside> since t=...` line per view when a missing
-  sky, an unexpected vis or the camera outside every level's boxes starts (held 0.25 s), with the
-  sky state, the slots' vis in that view and both cameras, and `... sky trouble over` when it ends
-  (`coop-log-sky-tick`, ARCHITECTURE.md "Rendering", TESTING.md 69). Scenario `sky-log` in the tools
-  checkout (committed there). `outside` shows up now and then with a scene camera or a teleport above
-  the levels (the game's own "outside of bsp"); `no-sky` and `vis` never did in 13 minutes of
-  `sky-beach`/`sky-pair`. Breaking the sky from the REPL: hide the active levels' `bsp adgifs`
-  (clearing `info sky` turns the wanted sky off too).
-- Playtest package from the tip with #181: `builds/tip-07ea0fb0d/jak1-coop.tar.gz` (binaries
-  `scratch/build-play`, no C++ change since `53f3c8d25`). In a playtest, a black sky now leaves a
-  `sky trouble` line in the game log: that answers #163.
+- **#180 part 1, PR #182** (`coop/180-autopilot`, open, verify all passed; "Part of #180", not closing):
+  - Game: Misc option "Co-op: record route" (off, `coop-settings.gc`, text id `#x1720` in all 25
+    languages) writes `[coop-rec]` lines (10/s per player, single player too) and a `[coop-rec] start
+    ... continue <name>` line per recording (option on, player 1 back after boot/load, a checkpoint
+    reload). `*cpad-override*` in `service-cpads` (`pad.gc`, `#f` in play): the harness autopilot's pad
+    hook. ARCHITECTURE.md "Input", TESTING.md 70.
+  - Harness (tools checkout, committed `f6e64cc`, its README "Autopilot (#180)"): `autopilot.gc`
+    (route walker with jumps/waits/re-aim/stuck report, follow mode on the other player's trail),
+    `demo/route.py` (game log -> route), scenarios `autopilot-beach` (17 checks) and `route-recorder` (4).
+  - Found and fixed in the branch: the recorder crashed single player at once (player 2's stale
+    context handle); now player 2 is read only in co-op.
+  - The hand route for `autopilot-beach` is player 1's 1 Hz status lines from the owner's last playtest
+    log (t 1471-1516: Sandover's canyon to the beach's entrance). Enemies along it are removed.
+- Playtest package of the branch (with the record option): `builds/coop-180-110083135/jak1-coop.tar.gz`
+  in the tools folder (binaries `scratch/build-play`). Not yet looked at in a screenshot: the new Misc
+  line's text (`coop-settings` drove the menu and passed).
 
 ## Done this run (step 2, coordinated)
 
@@ -52,7 +56,7 @@ row (56-67). Tools README's campaign list names them all.
 
 ## Open pull requests
 
-None.
+- **#182** `coop/180-autopilot` (#180 part 1): needs the owner's review and merge decision.
 
 Merge style: locally as Claude,
 `git merge --no-ff -m "Merge pull request #N from Clodmony/<branch> (AI-assisted)"`
@@ -79,10 +83,16 @@ Open and waiting on the owner:
   spike gates), #178 (nearest-player checks left, low). Not filed: the sage's beach intro leaves
   Sandover's warp gate hidden (single player too).
 
-Owner wants next (2026-10-18): #179 done (PR #181); #180 (harness autopilot: recorded routes,
-combat rules for common enemies, per-area rules for special ones; owner wants all three parts, first
-step Sentinel Beach). #180 needs one recording of the owner playing: first step, read #180's comments,
-then ask the owner for the recording (Sentinel Beach) or build the recorder first.
+Next for #180 (owner wants all three parts, first area Sentinel Beach):
+1. **The owner's recording**: install the package above, Misc Options > "Co-op: record route" on, play
+   Sentinel Beach from Sandover (alone, or co-op with only their pad moving), send the game log
+   (`game-jak1-jak1-coop.log`). Then `demo/route.py <log> -o ...` and a scenario that walks it.
+2. **Part 2, combat rules**: in `autopilot.gc`, a nav enemy within a few metres ahead: face it,
+   punch/spin, back to the route; hit: wait out the invulnerability; knocked out: resume after the
+   co-op respawn (the nearest-waypoint re-aim is already there); log each encounter. Test on the canyon
+   route with its enemies left alive (`AB_KILL` off).
+3. Follower variations from #180's comment: trail 5-20 s, wait / run ahead then catch up.
+4. Part 3, per-area rules (gnawers, bosses), area by area.
 
 Owner only: #1, #3, #8 (need a person), #7 (decision). Low priority: #157 (listener crash seen
 once), #153 (turbo while waiting).
@@ -107,8 +117,8 @@ once), #153 (turbo while waiting).
 - `goalc-test` leaves a SIGABRT core at exit in `--tests` runs while all tests pass (pre-existing).
 - Playtest packages: `scripts/coop-mod/package_mod.py --bin-dir <build> --allow-dynamic --out-dir
   <tools>/builds` (needs `extractor` in the build folder). The newest package:
-  `builds/tip-53f3c8d25/jak1-coop.tar.gz` (the whole run, binaries `scratch/build-play`, built
-  with #165); the owner last played an older one without #60, #165 and later.
+  `builds/coop-180-110083135/jak1-coop.tar.gz` (PR #182's branch: the tip plus the record option,
+  binaries `scratch/build-play`); the tip's own: `builds/tip-07ea0fb0d/`.
 - Pushes: the owner's global push guard (pre-push) blocks Claude-Session links and secrets, and on
   public pushes runs a headless review. Never `--no-verify`. Its review text comes from `git log -p
   -- .`, which drops a clean `--no-ff` merge whose tree equals the branch's: the review then sees
@@ -119,9 +129,8 @@ once), #153 (turbo while waiting).
 
 - Main checkout on `feature/jak1-local-splitscreen` (the owner's; its `build/` is old, don't copy
   binaries from it).
-- The Superset workspace of #179 (detached at the merged tip): archive it. Its `build/` predates
-  #165, so a stopped test game there leaves a gk core (the old exit segfault).
-- No bridge or test game running; pads unplugged.
+- This Superset workspace holds `coop/180-autopilot` (PR #182): keep it until the PR is merged.
+- No bridge or test game running (instance 3 stopped); pads unplugged.
 - A REPL call that crashes the game shows up as "Runtime is not responding", then every call as
   "Compilation generated code, but wasn't supposed to" (goalc lost the listener): `boot fresh=True`.
   Reading `(-> lev info ...)` of an inactive slot crashes the game.
@@ -135,7 +144,9 @@ whose build id the core lists (`eu-unstrip -n --core`), map return addresses on 
 entries, and to object files through `g_coop_linked` (40-byte entries: std::string, base, size).
 A crash at exit with a page-aligned rip and no native frames was the upstream exit segfault (#165).
 
-Things that crash the game from the REPL: writing through a field that is still 0 (a player's
+Things that crash the game from the REPL: `coop-player-target 1` outside co-op (stale handle: use
+`mcp-player-target`); reloading `splitscreen.gc` into a running game with `build <file>` (rebuild `mi`
+and boot fresh instead); writing through a field that is still 0 (a player's
 `racer` before the first mount: guard with `nonzero?`); walking `(-> l bsp level entity)` of a slot
 that isn't `active`; `(go-process ogreboss ogreboss-die)` before clearing `(-> ogreboss boulder)`;
 a REPL lambda as a process `trans-hook`; a REPL logger process with `'stack-no-clear` vectors in a
@@ -184,6 +195,8 @@ Harness mechanics:
 - Develop a scenario in scratch with a small runner that imports `scenarios` and loads the file with
   importlib: the shared `demo/campaign/` is imported by every session, so a half-written file there
   breaks the others. A change to a shared harness file is a small finished commit of its own.
+- A wait loop on `pgrep -f "[v]erify.sh"` never ended this session (it matched something of its own):
+  run `verify.sh` itself as the background command and read the summary when it returns.
 - `pkill -f`/`pgrep -f` with a pattern in the shell's own command line matches that shell: bracket a
   letter (`[r]un.py`) or wait on a pid. zsh doesn't split an unquoted `$S`. bash reads a script as it
   runs: never edit a script another session is running.
