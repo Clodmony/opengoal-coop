@@ -7,11 +7,11 @@ memory is not read by a session that starts in another worktree. State goes
 here; stable recipes go into `docs/splitscreen/`; personal data and hardware
 never.
 
-Last updated 2026-10-18 (#180 part 1 done, PR #182 open; next: the owner's Sentinel Beach recording, then #180 part 2).
+Last updated 2026-10-18 (#180 part 1 done, PR #182 merged; next: the owner's Sentinel Beach recording, then #180 part 2).
 
 ## This session (2026-10-18, second)
 
-- **#180 part 1, PR #182** (`coop/180-autopilot`, open, verify all passed; "Part of #180", not closing):
+- **#180 part 1, PR #182** (`coop/180-autopilot`, merged, verify all passed; "Part of #180", #180 stays open):
   - Game: Misc option "Co-op: record route" (off, `coop-settings.gc`, text id `#x1720` in all 25
     languages) writes `[coop-rec]` lines (10/s per player, single player too) and a `[coop-rec] start
     ... continue <name>` line per recording (option on, player 1 back after boot/load, a checkpoint
@@ -56,7 +56,7 @@ row (56-67). Tools README's campaign list names them all.
 
 ## Open pull requests
 
-- **#182** `coop/180-autopilot` (#180 part 1): needs the owner's review and merge decision.
+None.
 
 Merge style: locally as Claude,
 `git merge --no-ff -m "Merge pull request #N from Clodmony/<branch> (AI-assisted)"`
@@ -84,7 +84,7 @@ Open and waiting on the owner:
   Sandover's warp gate hidden (single player too).
 
 Next for #180 (owner wants all three parts, first area Sentinel Beach):
-1. **The owner's recording**: install the package above, Misc Options > "Co-op: record route" on, play
+1. **The owner's recording** (the owner said 2026-10-18 they will record it): install the package above, Misc Options > "Co-op: record route" on, play
    Sentinel Beach from Sandover (alone, or co-op with only their pad moving), send the game log
    (`game-jak1-jak1-coop.log`). Then `demo/route.py <log> -o ...` and a scenario that walks it.
 2. **Part 2, combat rules**: in `autopilot.gc`, a nav enemy within a few metres ahead: face it,
@@ -129,7 +129,7 @@ once), #153 (turbo while waiting).
 
 - Main checkout on `feature/jak1-local-splitscreen` (the owner's; its `build/` is old, don't copy
   binaries from it).
-- This Superset workspace holds `coop/180-autopilot` (PR #182): keep it until the PR is merged.
+- The Superset workspace of #180 (`coop/180-autopilot`, merged): archive it.
 - No bridge or test game running (instance 3 stopped); pads unplugged.
 - A REPL call that crashes the game shows up as "Runtime is not responding", then every call as
   "Compilation generated code, but wasn't supposed to" (goalc lost the listener): `boot fresh=True`.
