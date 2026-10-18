@@ -7,11 +7,11 @@ memory is not read by a session that starts in another worktree. State goes
 here; stable recipes go into `docs/splitscreen/`; personal data and hardware
 never.
 
-Last updated 2026-10-18 (#179 done, PR #181 open; next: #180, then step 3, #146 then #11, alone).
+Last updated 2026-10-18 (#179 done, PR #181 merged; next: #180, then step 3, #146 then #11, alone).
 
 ## This session (2026-10-18)
 
-- **#179, PR #181** (`coop/179-sky-log`, open, verify all passed): the game log gets a
+- **#179, PR #181** (`coop/179-sky-log`, merged, verify all passed): the game log gets a
   `[coop-log] ... view N sky trouble <no-sky|vis|outside> since t=...` line per view when a missing
   sky, an unexpected vis or the camera outside every level's boxes starts (held 0.25 s), with the
   sky state, the slots' vis in that view and both cameras, and `... sky trouble over` when it ends
@@ -20,7 +20,9 @@ Last updated 2026-10-18 (#179 done, PR #181 open; next: #180, then step 3, #146 
   the levels (the game's own "outside of bsp"); `no-sky` and `vis` never did in 13 minutes of
   `sky-beach`/`sky-pair`. Breaking the sky from the REPL: hide the active levels' `bsp adgifs`
   (clearing `info sky` turns the wanted sky off too).
-- A playtest package from the tip after #181 would put the log in front of #163's next black sky.
+- Playtest package from the tip with #181: `builds/tip-07ea0fb0d/jak1-coop.tar.gz` (binaries
+  `scratch/build-play`, no C++ change since `53f3c8d25`). In a playtest, a black sky now leaves a
+  `sky trouble` line in the game log: that answers #163.
 
 ## Done this run (step 2, coordinated)
 
@@ -50,7 +52,7 @@ row (56-67). Tools README's campaign list names them all.
 
 ## Open pull requests
 
-- **#181** (#179, sky log per view): ready; merge when the owner says so.
+None.
 
 Merge style: locally as Claude,
 `git merge --no-ff -m "Merge pull request #N from Clodmony/<branch> (AI-assisted)"`
@@ -117,8 +119,8 @@ once), #153 (turbo while waiting).
 
 - Main checkout on `feature/jak1-local-splitscreen` (the owner's; its `build/` is old, don't copy
   binaries from it).
-- The Superset workspace of #179 on `coop/179-sky-log` (PR #181); its `build/` predates #165, so a
-  stopped test game leaves a gk core (the old exit segfault). Archive it when #181 is merged.
+- The Superset workspace of #179 (detached at the merged tip): archive it. Its `build/` predates
+  #165, so a stopped test game there leaves a gk core (the old exit segfault).
 - No bridge or test game running; pads unplugged.
 - A REPL call that crashes the game shows up as "Runtime is not responding", then every call as
   "Compilation generated code, but wasn't supposed to" (goalc lost the listener): `boot fresh=True`.
